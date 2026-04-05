@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chip Tournament Viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background:#eaf4ff;
+  margin:0;
+  padding:20px;
+}
+.wrap{
+  max-width:1600px;
+  margin:0 auto;
+}
+.card{
+  background:white;
+  border-radius:12px;
+  padding:18px;
+  box-shadow:0 4px 14px rgba(0,0,0,0.08);
+  margin-bottom:16px;
+}
+h1,h2,h3{
+  margin-top:0;
+}
+.pill{
+  display:inline-block;
+  background:#fff;
+  border:1px solid #bbb;
+  border-radius:999px;
+  padding:6px 10px;
+  margin-right:8px;
+  margin-bottom:8px;
+}
+.small{
+  color:#555;
+  font-size:0.92rem;
+}
+.grid-main{
+  display:grid;
+  grid-template-columns: 2fr 1fr;
+  gap:16px;
+}
+.tables-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap:12px;
+}
+.table-card{
+  border:1px solid #d6dce5;
+  border-radius:12px;
+  padding:12px;
+  background:#f9fcff;
+}
+.queue-list{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+}
+.queue-item{
+  border:1px solid #d7dee7;
+  border-radius:10px;
+  background:#f8fbff;
+  padding:10px 12px;
+}
+.player-list{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap:10px;
+}
+.player-item{
+  border:1px solid #d7dee7;
+  border-radius:10px;
+  background:#f8fbff;
+  padding:10px 12px;
+}
+#winner-banner{
+  display:none;
+  background:linear-gradient(45deg,#1b5e20,#2e7d32,#43a047);
+  color:white;
+  padding:18px;
+  border-radius:12px;
+  font-size:1.6rem;
+  font-weight:bold;
+  text-align:center;
+  margin-bottom:18px;
+  box-shadow:0 8px 25px rgba(0,0,0,0.20);
+}
+.error-card{
+  border-left:6px solid #c62828;
+}
+@media (max-width: 980px){
+  .grid-main{
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  {% if not_found %}
+    <div class="card error-card">
+      <h1>Viewer Not Found</h1>
+      <p>No tournament viewer was found for this token.</p>
+    </div>
+  {% else %}
+    <div id="winner-banner"></div>
+
+    <div class="card">
+      <h1 style="margin-bottom:10px;">Tournament Viewer</h1>
+      <div id="summary">(loading...)</div>
+    </div>
+
+    <div class="grid-main">
+      <div>
+        <div class="card">
+          <h2>Tables</h2>
+          <div id="tables" class="tables-grid">(loading...)</div>
+        </div>
+
+        <div class="card">
+          <h2>Players</h2>
+          <div id="players" class="player-list">(loading...)</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Queue</h2>
+          <div id="queue" class="queue-list">(loading...)</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    const token = {{ token|tojson }};
+    let liveState = null;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function formatDateTime(dt) {
+      if (!dt) return '';
+      const d = new Date(dt);
+      if (Number.isNaN(d.getTime())) return dt;
+
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const year = d.getFullYear();
+
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+
+      hours = hours % 12;
+      if (hours === 0) hours = 12;
+
+      return `${month}-${day}-${year} ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+    }
+
+    function renderSummary() {
+      const summary = document.getElementById('summary');
+      if (!liveState) {
+        summary.innerHTML = 'No data available.';
+        return;
+      }
+
+      const tournament = liveState.tournament || {};
+      const stats = liveState.stats || {};
+
+      summary.innerHTML = `
+        <div class="pill"><strong>TD:</strong> ${escapeHtml(tournament.td_name || '—')}</div>
+        <div class="pill"><strong>Status:</strong> ${escapeHtml(tournament.status || '—')}</div>
+        <div class="pill"><strong>Tables:</strong> ${Number(stats.table_count || 0)}</div>
+        <div class="pill"><strong>Queue:</strong> ${Number(stats.queue_count || 0)}</div>
+        <div class="pill"><strong>Players Total:</strong> ${Number(stats.players_total || 0)}</div>
+        <div class="pill"><strong>Players Remaining:</strong> ${Number(stats.players_remaining || 0)}</div>
+        <div class="small" style="margin-top:10px;">
+          Last Updated: ${escapeHtml(formatDateTime(liveState.generated_at) || '—')}
+        </div>
+      `;
+    }
+
+    function renderWinner() {
+      const banner = document.getElementById('winner-banner');
+      const winner = liveState?.winner;
+
+      if (!winner || !winner.full_name) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+      }
+
+      banner.style.display = 'block';
+      banner.innerHTML = `Winner: ${escapeHtml(winner.full_name)} (${Number(winner.current_chips || 0)} chips)`;
+    }
+
+    function renderTables() {
+      const wrap = document.getElementById('tables');
+      const tables = liveState?.tables || [];
+
+      if (!tables.length) {
+        wrap.innerHTML = '<div class="small">No active tables.</div>';
+        return;
+      }
+
+      wrap.innerHTML = tables.map((table) => {
+        const seat1 = table.seat1;
+        const seat2 = table.seat2;
+
+        return `
+          <div class="table-card">
+            <h3>Table ${Number(table.table_no || 0)}</h3>
+            <div class="small" style="margin-bottom:10px;">
+              Match Start: ${escapeHtml(formatDateTime(table.match_start_time) || '—')}
+            </div>
+
+            <div style="margin-bottom:8px;">
+              <strong>Seat 1:</strong><br>
+              ${seat1 ? `${escapeHtml(seat1.full_name)} (${Number(seat1.current_chips || 0)} chips)` : 'Open'}
+            </div>
+
+            <div>
+              <strong>Seat 2:</strong><br>
+              ${seat2 ? `${escapeHtml(seat2.full_name)} (${Number(seat2.current_chips || 0)} chips)` : 'Open'}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderQueue() {
+      const wrap = document.getElementById('queue');
+      const queue = liveState?.queue || [];
+
+      if (!queue.length) {
+        wrap.innerHTML = '<div class="small">Queue is empty.</div>';
+        return;
+      }
+
+      wrap.innerHTML = queue.map((item) => `
+        <div class="queue-item">
+          <strong>#${Number(item.position || 0)} - ${escapeHtml(item.full_name || '')}</strong><br>
+          Chips: ${Number(item.current_chips || 0)}<br>
+          Matches Played: ${Number(item.matches_played || 0)}
+        </div>
+      `).join('');
+    }
+
+    function renderPlayers() {
+      const wrap = document.getElementById('players');
+      const players = liveState?.players || [];
+
+      if (!players.length) {
+        wrap.innerHTML = '<div class="small">No players found.</div>';
+        return;
+      }
+
+      wrap.innerHTML = players.map((player) => `
+        <div class="player-item">
+          <strong>${escapeHtml(player.full_name || '')}</strong><br>
+          Chips: ${Number(player.current_chips || 0)}<br>
+          Matches Played: ${Number(player.matches_played || 0)}<br>
+          Status: ${player.is_eliminated ? 'Eliminated' : 'Active'}
+        </div>
+      `).join('');
+    }
+
+    function renderAll() {
+      renderSummary();
+      renderWinner();
+      renderTables();
+      renderQueue();
+      renderPlayers();
+    }
+
+    async function loadLiveState() {
+      try {
+        const resp = await fetch(`/api/viewer/${encodeURIComponent(token)}`, { cache: 'no-store' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        liveState = await resp.json();
+        renderAll();
+      } catch (err) {
+        document.getElementById('summary').innerHTML = `Failed to load viewer data: ${escapeHtml(err.message)}`;
+        document.getElementById('tables').innerHTML = '';
+        document.getElementById('queue').innerHTML = '';
+        document.getElementById('players').innerHTML = '';
+      }
+    }
+
+    loadLiveState();
+    setInterval(loadLiveState, 10000);
+    </script>
+  {% endif %}
+</div>
+</body>
+</html>

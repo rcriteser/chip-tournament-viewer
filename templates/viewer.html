@@ -38,6 +38,15 @@
 const token = {{ token|tojson }};
 let liveState = null;
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 function formatTime(totalSeconds) {
   totalSeconds = Math.max(0, Number(totalSeconds || 0));
   const minutes = Math.floor(totalSeconds / 60);
@@ -116,54 +125,72 @@ function renderQueue() {
   const wrap = document.getElementById('queue');
   const queue = liveState?.queue || [];
 
-  wrap.innerHTML = queue.map((p,i) => `
+  if (!queue.length) {
+    wrap.innerHTML = '<div class="small">Queue is empty.</div>';
+    return;
+  }
+
+  wrap.innerHTML = queue.map((p, i) => `
     <div class="queue-item ${i === 0 ? 'next' : ''}">
-      #${p.position} - ${p.full_name}
+      #${p.position} - ${escapeHtml(p.full_name)}
     </div>
   `).join('');
 }
 
 function renderPlayers() {
   const wrap = document.getElementById('players');
-  let players = liveState?.players || [];
+  let players = [...(liveState?.players || [])];
 
-  players = players.sort((a,b)=>b.current_chips - a.current_chips);
+  if (!players.length) {
+    wrap.innerHTML = '<div class="small">No players found.</div>';
+    return;
+  }
 
-  wrap.innerHTML = players.map((p,i) => `
+  players.sort((a, b) => Number(b.current_chips || 0) - Number(a.current_chips || 0));
+
+  wrap.innerHTML = players.map((p, i) => `
     <div class="player-item ${i === 0 ? 'top' : ''}">
-      ${p.full_name}<br>
-      ${p.current_chips} chips
+      ${escapeHtml(p.full_name)}<br>
+      ${Number(p.current_chips || 0)} chips
     </div>
   `).join('');
 }
 
-function renderWinner(){
+function renderWinner() {
   const banner = document.getElementById('winner-banner');
   const winner = liveState?.winner;
 
-  if (!winner) return;
+  if (!winner) {
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+    return;
+  }
 
   banner.style.display = 'block';
-  banner.innerHTML = `Winner: ${winner.full_name}`;
+  banner.innerHTML = `Winner: ${escapeHtml(winner.full_name)}`;
 }
 
-function renderAll(){
+function renderAll() {
   renderTables();
   renderQueue();
   renderPlayers();
   renderWinner();
 }
 
-function formatTime(seconds){
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
+async function load() {
+  try {
+    const res = await fetch(`/api/viewer/${encodeURIComponent(token)}`, { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
 
-async function load(){
-  const res = await fetch(`/api/viewer/${token}`);
-  liveState = await res.json();
-  renderAll();
+    liveState = await res.json();
+    renderAll();
+  } catch (err) {
+    document.getElementById('tables').innerHTML = `<div class="small">Failed to load tables: ${escapeHtml(err.message)}</div>`;
+    document.getElementById('queue').innerHTML = '';
+    document.getElementById('players').innerHTML = '';
+  }
 }
 
 load();

@@ -38,21 +38,78 @@
 const token = {{ token|tojson }};
 let liveState = null;
 
+function formatTime(totalSeconds) {
+  totalSeconds = Math.max(0, Number(totalSeconds || 0));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function secondsSince(isoString) {
+  if (!isoString) return 0;
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return 0;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+}
+
+function getLiveTimerSeconds(startTime, fallbackSeconds = 0) {
+  if (startTime) {
+    return secondsSince(startTime);
+  }
+  return Math.max(0, Number(fallbackSeconds || 0));
+}
+
+function updateLiveClocks() {
+  document.querySelectorAll('.viewer-live-timer').forEach((el) => {
+    const startTime = el.dataset.startTime || '';
+    const fallbackSeconds = Number(el.dataset.elapsedSeconds || 0);
+    const seconds = getLiveTimerSeconds(startTime, fallbackSeconds);
+    el.textContent = formatTime(seconds);
+  });
+}
+
 function renderTables() {
   const wrap = document.getElementById('tables');
   const tables = liveState?.tables || [];
 
-  wrap.innerHTML = tables.map(t => `
-    <div class="table-card">
-      <div class="table-header">
-        <div>Table ${t.table_no}</div>
-        <div class="timer">${formatTime(t.elapsed_seconds || 0)}</div>
-      </div>
+  if (!tables.length) {
+    wrap.innerHTML = '<div class="small">No active tables.</div>';
+    return;
+  }
 
-      <div>${t.seat1?.full_name || 'Open'}</div>
-      <div>${t.seat2?.full_name || 'Open'}</div>
-    </div>
-  `).join('');
+  wrap.innerHTML = tables.map((table) => {
+    const seat1 = table.seat1;
+    const seat2 = table.seat2;
+    const currentSeconds = getLiveTimerSeconds(
+      table.match_start_time,
+      Number(table.elapsed_seconds || 0)
+    );
+
+    return `
+      <div class="table-card">
+        <div class="table-header">
+          <div>Table ${Number(table.table_no || 0)}</div>
+          <div
+            class="timer viewer-live-timer"
+            data-start-time="${escapeHtml(table.match_start_time || '')}"
+            data-elapsed-seconds="${Number(table.elapsed_seconds || 0)}"
+          >
+            ${formatTime(currentSeconds)}
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <strong>Seat 1:</strong><br>
+          ${seat1 ? `${escapeHtml(seat1.full_name)} (${Number(seat1.current_chips || 0)} chips)` : 'Open'}
+        </div>
+
+        <div>
+          <strong>Seat 2:</strong><br>
+          ${seat2 ? `${escapeHtml(seat2.full_name)} (${Number(seat2.current_chips || 0)} chips)` : 'Open'}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderQueue() {
@@ -110,7 +167,8 @@ async function load(){
 }
 
 load();
-setInterval(load, 10000);
+setInterval(load, 5000);
+setInterval(updateLiveClocks, 1000);
 </script>
 
 {% endif %}

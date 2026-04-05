@@ -96,8 +96,8 @@ function renderTables() {
 
     return `
       <div class="table-card">
-        <div class="table-header">
-          <div>Table ${Number(table.table_no || 0)}</div>
+        <div class="table-title-row">
+          <div class="table-title">Table ${Number(table.table_no || 0)}</div>
           <div
             class="timer viewer-live-timer"
             data-start-time="${escapeHtml(table.match_start_time || '')}"
@@ -107,14 +107,36 @@ function renderTables() {
           </div>
         </div>
 
-        <div style="margin-bottom:8px;">
-          <strong>Seat 1:</strong><br>
-          ${seat1 ? `${escapeHtml(seat1.full_name)} (${Number(seat1.current_chips || 0)} chips)` : 'Open'}
-        </div>
+        <div class="pool-table-wrap">
+          <img
+            src="{{ url_for('static', filename='img/pool_table.png') }}"
+            alt="Pool Table"
+            class="pool-table-img"
+          >
 
-        <div>
-          <strong>Seat 2:</strong><br>
-          ${seat2 ? `${escapeHtml(seat2.full_name)} (${Number(seat2.current_chips || 0)} chips)` : 'Open'}
+          <div class="viewer-seat viewer-seat-left">
+            <div class="viewer-seat-name">
+              ${seat1 ? escapeHtml(seat1.full_name) : 'Open'}
+            </div>
+            <div class="viewer-seat-chips">
+              ${seat1 ? `${Number(seat1.current_chips || 0)} chips` : ''}
+            </div>
+            <div class="viewer-seat-meta">
+              ${seat1 ? `Matches: ${Number(seat1.matches_played || 0)}` : ''}
+            </div>
+          </div>
+
+          <div class="viewer-seat viewer-seat-right">
+            <div class="viewer-seat-name">
+              ${seat2 ? escapeHtml(seat2.full_name) : 'Open'}
+            </div>
+            <div class="viewer-seat-chips">
+              ${seat2 ? `${Number(seat2.current_chips || 0)} chips` : ''}
+            </div>
+            <div class="viewer-seat-meta">
+              ${seat2 ? `Matches: ${Number(seat2.matches_played || 0)}` : ''}
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -132,7 +154,8 @@ function renderQueue() {
 
   wrap.innerHTML = queue.map((p, i) => `
     <div class="queue-item ${i === 0 ? 'next' : ''}">
-      #${p.position} - ${escapeHtml(p.full_name)}
+      <div class="queue-name">#${p.position} - ${escapeHtml(p.full_name)}</div>
+      <div class="queue-meta">${Number(p.current_chips || 0)} chips · Matches: ${Number(p.matches_played || 0)}</div>
     </div>
   `).join('');
 }
@@ -150,8 +173,9 @@ function renderPlayers() {
 
   wrap.innerHTML = players.map((p, i) => `
     <div class="player-item ${i === 0 ? 'top' : ''}">
-      ${escapeHtml(p.full_name)}<br>
-      ${Number(p.current_chips || 0)} chips
+      <div class="player-name">${escapeHtml(p.full_name)}</div>
+      <div class="player-chips">${Number(p.current_chips || 0)} chips</div>
+      <div class="player-meta">Matches: ${Number(p.matches_played || 0)}</div>
     </div>
   `).join('');
 }

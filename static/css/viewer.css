@@ -56,14 +56,16 @@ h1,h2,h3{
 }
 
 .timer{
-  color:#ffffff;
-  background:#020617;
-  padding:4px 8px;
-  border-radius:6px;
+  color:#7CFF7C;
+  background:#000000;
+  border:2px solid #1f2937;
+  border-radius:999px;
+  padding:4px 12px;
   font-weight:bold;
-  font-size:0.95rem;
-  border:1px solid #38bdf8;
+  font-size:1rem;
   font-family:monospace;
+  letter-spacing:1px;
+  box-shadow:0 0 8px rgba(124,255,124,0.18);
   white-space:nowrap;
 }
 
@@ -90,14 +92,14 @@ h1,h2,h3{
   transform:translateY(-50%);
   width:34%;
   min-height:74px;
-  background:rgba(2, 6, 23, 0.78);
-  color:#f8fafc;
-  border:1px solid rgba(148, 163, 184, 0.45);
-  border-radius:10px;
+  background:rgba(255,255,255,0.92);
+  color:#0f172a;
+  border:1px solid rgba(148,163,184,0.65);
+  border-radius:12px;
   padding:8px;
   box-sizing:border-box;
   text-align:center;
-  backdrop-filter:blur(2px);
+  box-shadow:0 2px 8px rgba(0,0,0,0.18);
 }
 
 .viewer-seat-left{
@@ -117,13 +119,13 @@ h1,h2,h3{
 
 .viewer-seat-chips{
   font-size:0.88rem;
-  color:#bfdbfe;
+  color:#334155;
   margin-bottom:3px;
 }
 
 .viewer-seat-meta{
   font-size:0.78rem;
-  color:#cbd5e1;
+  color:#475569;
 }
 
 .queue-item{
@@ -222,6 +224,6 @@ h1,h2,h3{
 
   .timer{
     font-size:0.88rem;
-    padding:4px 7px;
+    padding:4px 10px;
   }
 }

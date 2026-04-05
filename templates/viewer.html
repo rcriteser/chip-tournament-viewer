@@ -46,7 +46,7 @@ function renderTables() {
     <div class="table-card">
       <div class="table-header">
         <div>Table ${t.table_no}</div>
-        <div class="timer">${t.elapsed_seconds || 0}s</div>
+        <div class="timer">${formatTime(t.elapsed_seconds || 0)}</div>
       </div>
 
       <div>${t.seat1?.full_name || 'Open'}</div>
@@ -95,6 +95,12 @@ function renderAll(){
   renderQueue();
   renderPlayers();
   renderWinner();
+}
+
+function formatTime(seconds){
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
 async function load(){

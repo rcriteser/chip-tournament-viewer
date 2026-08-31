@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from storage import validate_postgresql_url
+from storage import normalize_postgresql_psycopg_url, validate_postgresql_url
 
 
 PRODUCTION_TLS_MODES = {"require", "verify-ca", "verify-full"}
@@ -61,8 +61,9 @@ def load_config(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
             "Viewer does not support SQLite."
         )
     try:
-        validate_postgresql_url(str(database_url))
-        _validate_production_tls(str(database_url), viewer_env)
+        database_url = normalize_postgresql_psycopg_url(str(database_url))
+        validate_postgresql_url(database_url)
+        _validate_production_tls(database_url, viewer_env)
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
 

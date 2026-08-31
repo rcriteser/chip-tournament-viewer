@@ -3,8 +3,9 @@
 The public Viewer is a Flask/Gunicorn service that accepts authenticated desktop
 snapshots and serves them through public token URLs. PostgreSQL is the only
 persistence backend. The service never reads or writes `viewer_host.db`, and it
-will fail at startup if `DATABASE_URL` is missing or is not a
-`postgresql+psycopg` URL.
+will fail at startup if `DATABASE_URL` is missing or is not PostgreSQL. A
+provider-style `postgresql://` URL is safely normalized to the installed
+`postgresql+psycopg` driver; other drivers are rejected.
 
 ## Production runtime
 
@@ -55,7 +56,7 @@ unauthenticated, non-mutating, and database-independent.
 Set `DATABASE_URL` before running either the application or Alembic:
 
     export DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:PORT/DATABASE?sslmode=require'
-    alembic upgrade head
+    python -m alembic upgrade head
     gunicorn --workers 2 --threads 1 app:app
 
 `sslmode=require` is the initial production TLS setting. Prefer
@@ -73,6 +74,10 @@ Run migrations as a DigitalOcean pre-deploy job using a DDL-capable Viewer
 database role. Run the Viewer service with a separate DML-only Viewer role.
 Neither role needs access to the Licensing database or its tables.
 
+See [database deployment](docs/database_deployment.md) for PRE_DEPLOY ownership,
+TLS/database identity validation, advisory locking, role separation,
+verification, and recovery policy.
+
 ## Local Gunicorn restart smoke
 
 Use only the guarded Docker database below. Set test-only values, then run the
@@ -81,7 +86,7 @@ migration separately before the web process:
     export DATABASE_URL='postgresql+psycopg://ct_viewer_test:ct_viewer_test@127.0.0.1:55433/ct_viewer_test'
     export VIEWER_TESTING=true
     export PORT=5051
-    alembic upgrade head
+    python -m alembic upgrade head
     gunicorn \
       --bind "0.0.0.0:${PORT}" --workers 2 --worker-class sync --threads 1 \
       --timeout 30 --graceful-timeout 30 --keep-alive 5 \

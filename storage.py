@@ -86,6 +86,24 @@ def validate_postgresql_url(value: str) -> URL:
     return url
 
 
+def normalize_postgresql_psycopg_url(value: str) -> str:
+    """Normalize a provider PostgreSQL URL to the installed Psycopg 3 driver."""
+
+    try:
+        url = make_url(value.strip())
+    except Exception as exc:  # pragma: no cover - SQLAlchemy owns parsing details
+        raise ValueError("DATABASE_URL must be a valid PostgreSQL URL.") from exc
+    if url.get_backend_name() != "postgresql":
+        raise ValueError("DATABASE_URL must use PostgreSQL; SQLite is not supported.")
+    if url.drivername == "postgresql":
+        url = url.set(drivername="postgresql+psycopg")
+    elif url.drivername != "postgresql+psycopg":
+        raise ValueError("DATABASE_URL must use the postgresql+psycopg driver.")
+    if not url.host or not url.database:
+        raise ValueError("DATABASE_URL must include a PostgreSQL host and database name.")
+    return url.render_as_string(hide_password=False)
+
+
 def get_engine() -> Engine:
     """Return a per-process engine, avoiding pool inheritance under Gunicorn."""
     database_url = _database_url()

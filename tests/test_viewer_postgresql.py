@@ -9,6 +9,7 @@ from sqlalchemy import func, inspect, select
 from sqlalchemy.dialects.postgresql import JSONB
 
 import app as app_module
+import storage
 from app import create_app
 from storage import dispose_engines, get_record_by_token, get_snapshot_by_token, viewer_tournaments
 from tests.conftest import TEST_DATABASE_URL, alembic_config
@@ -40,6 +41,30 @@ def test_config_requires_postgresql_url(monkeypatch):
         create_app()
     with pytest.raises(RuntimeError, match="SQLite is not supported"):
         create_app({"DATABASE_URL": "sqlite:///viewer_host.db"})
+
+
+def test_production_config_requires_postgresql_tls():
+    url = "postgresql+psycopg://test:test@127.0.0.1:1/ct_viewer_test"
+    with pytest.raises(RuntimeError, match="must require PostgreSQL TLS"):
+        create_app({"DATABASE_URL": url, "VIEWER_ENV": "production"})
+
+    app = create_app({
+        "DATABASE_URL": f"{url}?sslmode=require",
+        "VIEWER_ENV": "production",
+    })
+    assert app.debug is False
+
+
+def test_testing_config_allows_guarded_non_tls_postgresql():
+    app = create_app({"TESTING": True, "DATABASE_URL": TEST_DATABASE_URL})
+    assert app.config["VIEWER_ENV"] == "testing"
+    assert app.debug is False
+
+
+def test_factory_does_not_create_an_engine_before_a_database_request():
+    dispose_engines()
+    create_app({"TESTING": True, "DATABASE_URL": TEST_DATABASE_URL})
+    assert storage._engines == {}
 
 
 def test_first_sync_public_api_and_viewer_page(client, sync_payload):

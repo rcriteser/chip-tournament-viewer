@@ -2,17 +2,22 @@
 
 ## Owner and command
 
-The future Viewer App Platform application has exactly one `PRE_DEPLOY`
-migration job. Its exact command is `python -m alembic upgrade head`. Only this
-job owns Viewer migrations. Gunicorn, `create_app`, startup hooks, requests,
-post-deploy hooks, workers, and Desktop must not run migrations. This repository
-work does not create App Platform resources, roles, backups, or credentials.
+The deployed Viewer App Platform application, `ct-viewer-prod`, has exactly one
+pre-deploy migration job, `ct-viewer-migrate`. Its exact command is
+`python -m alembic upgrade head`. Only this job owns Viewer migrations.
+Gunicorn, `create_app`, startup hooks, requests, post-deploy hooks, workers,
+and Desktop must not run migrations.
+
+The job uses `ct_viewer_migrator` against `ct_viewer_prod` through the
+DigitalOcean VPC/private PostgreSQL hostname with `sslmode=require`. It has
+completed revision `0001_viewer_pg`; `alembic_version` and
+`viewer_tournaments` are owned by `ct_viewer_migrator`.
 
 ## Migration controls
 
 The job receives only an encrypted Viewer DDL `DATABASE_URL` and non-secret
 `MIGRATION_ENV=production`,
-`MIGRATION_EXPECTED_DATABASE_NAME=<exact Viewer database>`,
+`MIGRATION_EXPECTED_DATABASE_NAME=ct_viewer_prod`,
 `MIGRATION_ADVISORY_LOCK_TIMEOUT_SECONDS=30`, and
 `MIGRATION_DDL_LOCK_TIMEOUT_SECONDS=30`.
 
@@ -27,13 +32,14 @@ result—never credential URLs, sync keys, snapshots, or secrets.
 
 ## Roles, isolation, and verification
 
-The future DDL role needs CONNECT, schema USAGE/CREATE, ownership or adequate
-ALTER/DROP, sequences, data-migration DML, and `alembic_version` access. The
-Viewer web DML role gets only CONNECT, schema USAGE, SELECT/INSERT/UPDATE/DELETE,
-and sequence usage; it must not have CREATE/ALTER/DROP or schema ownership.
-Configure default privileges for future migration-created objects. Shared
-clusters require separate Licensing/Viewer databases, DDL/DML roles, lock IDs,
-and no cross-service grants.
+`ct_viewer_migrator` has CONNECT only to `ct_viewer_prod`, schema USAGE/CREATE,
+ownership of migration-created objects, and the DDL, sequence, data-migration,
+and `alembic_version` rights required by Alembic. `ct_viewer_web` has CONNECT
+only to `ct_viewer_prod`, schema USAGE, SELECT/INSERT/UPDATE/DELETE, and
+required sequence usage; it has no CREATE/ALTER/DROP or schema ownership.
+Default privileges grant web-role access to migration-created tables and
+sequences. The tested web-role ACLs confirm `ct_viewer_web` can connect to
+`ct_viewer_prod` but not `ct_licensing_prod`.
 
 Exactly one Alembic head is required; current/target/final revisions are logged
 and final revision is checked. Re-running the command at head is the safe retry.

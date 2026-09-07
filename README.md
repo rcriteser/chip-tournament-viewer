@@ -9,8 +9,23 @@ provider-style `postgresql://` URL is safely normalized to the installed
 
 ## Production runtime
 
-Viewer runs as an always-on Gunicorn WSGI service. Pin the App Platform Python
-runtime with `runtime.txt`:
+Viewer is deployed as the always-on DigitalOcean App Platform service
+`ct-viewer-prod` in `chip-tournament-prod` (ATL/ATL1, VPC `default-atl1`) at
+`https://viewer.billiardlabs.com`. It autodeploys from
+`rcriteser/chip-tournament-viewer` `main` using one 1 GiB / 1 shared-vCPU
+container; the observed configured recurring service price is approximately
+$12/month, not a guaranteed price. Render is suspended during retirement and
+is not part of the active Viewer production architecture.
+
+The web runtime uses `ct_viewer_web` against `ct_viewer_prod` through the
+VPC/private PostgreSQL hostname with `sslmode=require`. The separate
+`ct-viewer-migrate` pre-deploy job uses `ct_viewer_migrator` and has completed
+revision `0001_viewer_pg`; both production tables are owned by that migrator
+role. Runtime connectivity has been verified with the Viewer web role and
+database.
+
+Viewer runs as a Gunicorn WSGI service. Pin the App Platform Python runtime
+with `runtime.txt`:
 
     python-3.12.13
 
@@ -73,6 +88,11 @@ stay within the managed PostgreSQL connection limit.
 Run migrations as a DigitalOcean pre-deploy job using a DDL-capable Viewer
 database role. Run the Viewer service with a separate DML-only Viewer role.
 Neither role needs access to the Licensing database or its tables.
+
+Desktop end-to-end verification has persisted a live-tournament snapshot through
+`https://viewer.billiardlabs.com/api/viewer-sync/<token>` and opened the public
+page at `https://viewer.billiardlabs.com/viewer/<token>`. Do not record real
+tokens or sync keys in documentation.
 
 See [database deployment](docs/database_deployment.md) for PRE_DEPLOY ownership,
 TLS/database identity validation, advisory locking, role separation,
